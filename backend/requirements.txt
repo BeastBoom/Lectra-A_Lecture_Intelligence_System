@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+python-multipart
+python-dotenv
+librosa
+noisereduce
+soundfile
+numpy
+pydub
+openai-whisper
+google-genai
