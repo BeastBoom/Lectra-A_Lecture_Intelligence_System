@@ -99,6 +99,10 @@ export async function getAudio(audioId: string): Promise<AudioDetail> {
   return apiFetch(`/api/audios/${audioId}`);
 }
 
+export async function deleteAudio(audioId: string): Promise<{ message: string }> {
+  return apiFetch(`/api/audios/${audioId}`, { method: "DELETE" });
+}
+
 // ── Artifacts ───────────────────────────────────────────────────────────────
 
 export async function getArtifacts(audioId: string, type?: string): Promise<ArtifactSummary[]> {

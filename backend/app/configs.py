@@ -19,6 +19,19 @@ FFMPEG_BIN: str = os.getenv("FFMPEG_BIN", "ffmpeg")
 # ── Gemini ────────────────────────────────────────────────────────────────────
 GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 
+# ── Google OAuth ──────────────────────────────────────────────────────────────
+GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "YOUR_GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "YOUR_GOOGLE_CLIENT_SECRET")
+GOOGLE_REDIRECT_URI: str = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:3000/auth/google/callback")
+
+# ── SMTP (Password Reset Emails) ─────────────────────────────────────────────
+SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER: str = os.getenv("SMTP_USER", "")
+SMTP_PASS: str = os.getenv("SMTP_PASS", "")
+SMTP_FROM: str = os.getenv("SMTP_FROM", os.getenv("SMTP_USER", "noreply@lectra.ai"))
+FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
 # ── Whisper ───────────────────────────────────────────────────────────────────
 WHISPER_MODEL: str = os.getenv("WHISPER_MODEL", "base")
 

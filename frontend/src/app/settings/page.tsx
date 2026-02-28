@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User, Sliders, Puzzle, Palette, Moon, Sun, Monitor } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
@@ -15,6 +15,18 @@ const sections = [
 export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState<string>("profile");
   const { theme, setTheme } = useTheme();
+  const [user, setUser] = useState<{ full_name?: string; email?: string } | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("lectra_user");
+      if (raw) setUser(JSON.parse(raw));
+    } catch { /* ignore */ }
+  }, []);
+
+  const userName = user?.full_name || "User";
+  const userEmail = user?.email || "";
+  const initials = userName.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2) || "U";
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -51,21 +63,21 @@ export default function SettingsPage() {
                 <h2 className="text-lg font-semibold">Profile</h2>
                 <div className="flex items-center gap-4">
                   <div className="h-16 w-16 rounded-full bg-gradient-to-br from-primary/60 to-primary flex items-center justify-center">
-                    <span className="text-xl font-bold text-primary-foreground">JD</span>
+                    <span className="text-xl font-bold text-primary-foreground">{initials}</span>
                   </div>
                   <div>
-                    <p className="font-medium">John Doe</p>
-                    <p className="text-sm text-muted-foreground">john@lectra.ai</p>
+                    <p className="font-medium">{userName}</p>
+                    <p className="text-sm text-muted-foreground">{userEmail}</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium">Full Name</label>
-                    <input type="text" defaultValue="John Doe" className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary" />
+                    <input type="text" defaultValue={userName} className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary" />
                   </div>
                   <div>
                     <label className="text-sm font-medium">Email</label>
-                    <input type="email" defaultValue="john@lectra.ai" className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary" />
+                    <input type="email" defaultValue={userEmail} className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary" />
                   </div>
                   <div>
                     <label className="text-sm font-medium">Institution</label>

@@ -1,12 +1,30 @@
-# OS files
+# ── Environment files (API keys — NEVER commit) ──────────────────────────────
+.env
+.env.local
+.env*.local
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+venv/
+*.egg-info/
+
+# ── Node / Next.js ────────────────────────────────────────────────────────────
+node_modules/
+.next/
+out/
+
+# ── OS files ──────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 
-# IDE / Editor
+# ── IDE / Editor ──────────────────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# Misc
+# ── Temp / build ──────────────────────────────────────────────────────────────
+tmp/
+dist/
 *.log

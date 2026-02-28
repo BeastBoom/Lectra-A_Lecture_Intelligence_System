@@ -126,3 +126,17 @@ class AIOutput(Base):
     output_type = Column(Text, nullable=False)  # summary
     payload = Column(JSONB, nullable=False)
     created_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False)
+
+
+# ── Users ─────────────────────────────────────────────────────────────────────
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    email = Column(Text, nullable=False, unique=True, index=True)
+    hashed_password = Column(Text, nullable=True)  # nullable for OAuth-only users
+    full_name = Column(Text, nullable=True)
+    provider = Column(Text, nullable=False, default="email")  # email, google, apple, microsoft
+    created_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False)
+

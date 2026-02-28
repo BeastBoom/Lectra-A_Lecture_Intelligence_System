@@ -11,7 +11,7 @@ from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
 
 from app.configs import DATABASE_URL
-from app.db.models import Artifact, Audio, Job, TranscriptSegment, AIOutput
+from app.db.models import Artifact, Audio, Job, JobLog, TranscriptSegment, AIOutput
 
 router = APIRouter()
 _engine = create_engine(DATABASE_URL)
@@ -209,3 +209,43 @@ async def get_audio_transcript(audio_id: str):
                 for seg in segments
             ],
         }
+
+
+# ── DELETE /api/audios/{audioId} ─────────────────────────────────────────────
+
+@router.delete("/audios/{audio_id}")
+async def delete_audio(audio_id: str):
+    """Delete an audio and all its related data (jobs, artifacts, transcript, AI outputs)."""
+    import os
+    import logging
+    logger = logging.getLogger(__name__)
+
+    try:
+        aid = uuid.UUID(audio_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid audio ID format")
+
+    with Session(_engine) as session:
+        audio = session.get(Audio, aid)
+        if audio is None:
+            raise HTTPException(status_code=404, detail="Audio not found")
+
+        # Delete related rows in dependency order
+        session.query(TranscriptSegment).filter(TranscriptSegment.audio_id == aid).delete()
+        session.query(AIOutput).filter(AIOutput.audio_id == aid).delete()
+        session.query(Artifact).filter(Artifact.audio_id == aid).delete()
+
+        # Delete job_logs first (they reference jobs)
+        job_ids = [j.id for j in session.query(Job.id).filter(Job.audio_id == aid).all()]
+        if job_ids:
+            session.query(JobLog).filter(JobLog.job_id.in_(job_ids)).delete(synchronize_session=False)
+        session.query(Job).filter(Job.audio_id == aid).delete()
+
+        # Delete the audio record
+        session.delete(audio)
+        session.commit()
+
+        logger.info(f"[Delete Audio] Deleted audio {audio_id}")
+
+    return {"message": "Audio deleted successfully.", "audioId": audio_id}
+

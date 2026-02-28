@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Search as SearchIcon, AudioLines, FileText, StickyNote, BrainCircuit, Loader2 } from "lucide-react";
 import { listAudios, listDocuments } from "@/lib/api";
@@ -11,8 +12,9 @@ import { cn, truncate } from "@/lib/utils";
 
 const categories = ["All", "Audio", "Documents", "Notes", "Quiz"] as const;
 
-export default function SearchPage() {
-  const [query, setQuery] = useState("");
+function SearchContent() {
+  const searchParams = useSearchParams();
+  const [query, setQuery] = useState(searchParams.get("q") || "");
   const [activeCategory, setActiveCategory] = useState<(typeof categories)[number]>("All");
   const [audios, setAudios] = useState<AudioSummary[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -138,3 +140,12 @@ export default function SearchPage() {
     </div>
   );
 }
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-40"><span className="text-muted-foreground">Loading...</span></div>}>
+      <SearchContent />
+    </Suspense>
+  );
+}
+

@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Search, Grid3X3, List, Filter, MoreHorizontal, AudioLines, Check, Loader2 } from "lucide-react";
-import { listAudios } from "@/lib/api";
+import { Search, Grid3X3, List, Filter, Trash2, AudioLines, Check, Loader2 } from "lucide-react";
+import { listAudios, deleteAudio } from "@/lib/api";
 import type { AudioSummary } from "@/types";
 import { WaveformPlaceholder } from "@/components/shared/WaveformPlaceholder";
 import { cn, formatDuration, formatDate } from "@/lib/utils";
@@ -35,6 +35,28 @@ export default function AudioPage() {
       else next.add(id);
       return next;
     });
+  };
+
+  const handleDelete = async (audioId: string, title: string) => {
+    if (!confirm(`Delete "${title}"? This will permanently remove the audio and all its data.`)) return;
+    try {
+      await deleteAudio(audioId);
+      setAudios((prev) => prev.filter((a) => a.audioId !== audioId));
+      setSelectedIds((prev) => { const next = new Set(prev); next.delete(audioId); return next; });
+    } catch (err) {
+      alert("Failed to delete audio: " + (err instanceof Error ? err.message : "Unknown error"));
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (!confirm(`Delete ${selectedIds.size} selected audio(s)? This cannot be undone.`)) return;
+    for (const id of selectedIds) {
+      try {
+        await deleteAudio(id);
+        setAudios((prev) => prev.filter((a) => a.audioId !== id));
+      } catch { /* continue with others */ }
+    }
+    setSelectedIds(new Set());
   };
 
   if (loading) {
@@ -87,7 +109,16 @@ export default function AudioPage() {
           </button>
         </div>
         {selectedIds.size > 0 && (
-          <span className="text-xs text-primary font-medium">{selectedIds.size} selected</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-primary font-medium">{selectedIds.size} selected</span>
+            <button
+              onClick={handleDeleteSelected}
+              className="flex items-center gap-1 rounded-lg border border-destructive/30 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10 transition-colors"
+            >
+              <Trash2 className="h-3 w-3" />
+              Delete
+            </button>
+          </div>
         )}
       </div>
 
@@ -121,14 +152,18 @@ export default function AudioPage() {
                       <span className={cn(
                         "text-[10px] px-2 py-0.5 rounded-full font-medium",
                         audio.status === "ready" ? "bg-green-500/10 text-green-500" :
-                        audio.status === "processing" ? "bg-blue-500/10 text-blue-500" :
-                        "bg-red-500/10 text-red-500"
+                          audio.status === "processing" ? "bg-blue-500/10 text-blue-500" :
+                            "bg-red-500/10 text-red-500"
                       )}>
                         {audio.status}
                       </span>
                     </div>
-                    <button className="text-muted-foreground hover:text-foreground">
-                      <MoreHorizontal className="h-4 w-4" />
+                    <button
+                      onClick={(e) => { e.preventDefault(); handleDelete(audio.audioId, audio.title); }}
+                      className="text-muted-foreground hover:text-destructive transition-colors"
+                      title="Delete audio"
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
 
@@ -185,16 +220,20 @@ export default function AudioPage() {
                     <span className={cn(
                       "text-[10px] px-2 py-0.5 rounded-full font-medium",
                       audio.status === "ready" ? "bg-green-500/10 text-green-500" :
-                      audio.status === "processing" ? "bg-blue-500/10 text-blue-500" :
-                      "bg-red-500/10 text-red-500"
+                        audio.status === "processing" ? "bg-blue-500/10 text-blue-500" :
+                          "bg-red-500/10 text-red-500"
                     )}>
                       {audio.status}
                     </span>
                   </td>
                   <td className="p-3 text-xs text-muted-foreground">{audio.uploadedAt ? formatDate(audio.uploadedAt) : "—"}</td>
                   <td className="p-3">
-                    <button className="text-muted-foreground hover:text-foreground">
-                      <MoreHorizontal className="h-4 w-4" />
+                    <button
+                      onClick={() => handleDelete(audio.audioId, audio.title)}
+                      className="text-muted-foreground hover:text-destructive transition-colors"
+                      title="Delete audio"
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </td>
                 </tr>
