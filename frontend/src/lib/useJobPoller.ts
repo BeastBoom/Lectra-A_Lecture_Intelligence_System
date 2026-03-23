@@ -49,32 +49,36 @@ export function useJobPoller(options?: UseJobPollerOptions): UseJobPollerReturn 
     }
   }, []);
 
-  const poll = useCallback(async () => {
-    const jid = jobIdRef.current;
-    if (!jid) return;
+  const poll = useCallback(() => {
+    const doPoll = async () => {
+      const jid = jobIdRef.current;
+      if (!jid) return;
 
-    try {
-      const status = await getJobStatus(jid);
-      setJobStatus(status);
-      setError(null);
+      try {
+        const status = await getJobStatus(jid);
+        setJobStatus(status);
+        setError(null);
 
-      // Stop if terminal state
-      if (status.state === "completed" || status.state === "failed") {
-        stopPolling();
-        return;
+        // Stop if terminal state
+        if (status.state === "completed" || status.state === "failed") {
+          stopPolling();
+          return;
+        }
+
+        // Schedule next poll with backoff
+        intervalRef.current = Math.min(
+          intervalRef.current * backoffFactor,
+          maxInterval,
+        );
+        timerRef.current = setTimeout(doPoll, intervalRef.current);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Polling failed");
+        // Keep polling on transient errors
+        timerRef.current = setTimeout(doPoll, intervalRef.current);
       }
+    };
 
-      // Schedule next poll with backoff
-      intervalRef.current = Math.min(
-        intervalRef.current * backoffFactor,
-        maxInterval,
-      );
-      timerRef.current = setTimeout(poll, intervalRef.current);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Polling failed");
-      // Keep polling on transient errors
-      timerRef.current = setTimeout(poll, intervalRef.current);
-    }
+    doPoll();
   }, [backoffFactor, maxInterval, stopPolling]);
 
   const startPolling = useCallback(
