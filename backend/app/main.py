@@ -8,10 +8,13 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"  # Fix OpenMP conflict (PyTorch + An
 
 import threading
 import logging
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+_start_time = time.time()
 
 from app.api.upload import router as upload_router
 from app.api.jobs import router as jobs_router
@@ -85,5 +88,10 @@ app.include_router(auth_router, prefix="/api", tags=["Auth"])
 
 @app.get("/", tags=["Health"])
 async def health_check() -> dict:
-    return {"status": "ok", "service": "lectra-backend"}
+    return {
+        "status": "ok",
+        "service": "lectra-backend",
+        "version": app.version,
+        "uptime_seconds": round(time.time() - _start_time, 1),
+    }
 
