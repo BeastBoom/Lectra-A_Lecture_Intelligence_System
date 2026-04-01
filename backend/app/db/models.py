@@ -1,7 +1,8 @@
 """
 SQLAlchemy ORM models for the Lectra audio processing system.
 
-Tables: audios, artifacts, jobs, job_logs, transcript_segments, ai_outputs
+Tables: audios, artifacts, jobs, job_logs, transcript_segments, ai_outputs,
+        subjects, subject_notes, note_sections, users
 """
 from __future__ import annotations
 
@@ -9,6 +10,7 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    Boolean,
     Column,
     DateTime,
     Float,
@@ -34,6 +36,56 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+# ── Subjects ──────────────────────────────────────────────────────────────────
+
+class Subject(Base):
+    __tablename__ = "subjects"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    user_id = Column(Text, nullable=True)
+    name = Column(Text, nullable=False)
+    description = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False)
+
+    consolidated_notes = relationship("SubjectNotes", back_populates="subject", cascade="all, delete-orphan")
+    note_sections = relationship("NoteSection", back_populates="subject", cascade="all, delete-orphan")
+
+
+# ── Subject Notes (consolidated per subject) ─────────────────────────────────
+
+class SubjectNotes(Base):
+    __tablename__ = "subject_notes"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    subject_id = Column(UUID(as_uuid=True), ForeignKey("subjects.id"), nullable=False)
+    consolidated_notes = Column(Text, nullable=True)
+    version = Column(Integer, default=1, nullable=False)
+    last_updated_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False)
+
+    subject = relationship("Subject", back_populates="consolidated_notes")
+
+
+# ── Note Sections (per-session structured note items) ─────────────────────────
+
+class NoteSection(Base):
+    __tablename__ = "note_sections"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    subject_id = Column(UUID(as_uuid=True), ForeignKey("subjects.id"), nullable=False)
+    audio_id = Column(UUID(as_uuid=True), ForeignKey("audios.id"), nullable=False)
+    section_order = Column(Integer, default=0, nullable=False)
+    title = Column(Text, nullable=True)
+    content = Column(Text, nullable=False)
+    timestamp_start = Column(Float, nullable=True)
+    timestamp_end = Column(Float, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False)
+
+    subject = relationship("Subject", back_populates="note_sections")
+    audio = relationship("Audio", back_populates="note_sections")
+
+
 # ── Audios ────────────────────────────────────────────────────────────────────
 
 class Audio(Base):
@@ -42,15 +94,21 @@ class Audio(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
     user_id = Column(Text, nullable=True)
     course_id = Column(Text, nullable=True)
+    subject_id = Column(UUID(as_uuid=True), ForeignKey("subjects.id"), nullable=True)
+    inferred_subject_id = Column(UUID(as_uuid=True), ForeignKey("subjects.id"), nullable=True)
+    subject_source = Column(Text, default="unset", nullable=False)  # manual | ai_inferred | unset
     filename = Column(Text, nullable=False)
     uploaded_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False)
     duration_seconds = Column(Float, nullable=True)
     raw_audio = Column(LargeBinary, nullable=False)
     metadata_ = Column("metadata", JSONB, nullable=True)
 
+    subject = relationship("Subject", foreign_keys=[subject_id])
+    inferred_subject = relationship("Subject", foreign_keys=[inferred_subject_id])
     artifacts = relationship("Artifact", back_populates="audio", cascade="all, delete-orphan")
     jobs = relationship("Job", back_populates="audio", cascade="all, delete-orphan")
     transcript_segments = relationship("TranscriptSegment", back_populates="audio", cascade="all, delete-orphan")
+    note_sections = relationship("NoteSection", back_populates="audio", cascade="all, delete-orphan")
 
 
 # ── Artifacts ─────────────────────────────────────────────────────────────────

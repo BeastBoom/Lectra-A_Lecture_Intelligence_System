@@ -12,7 +12,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.configs import ALLOWED_EXTENSIONS, DATABASE_URL
-from app.db.models import Audio, Job
+from app.db.models import Audio, Job, Subject
 from app.utils import file_extension
 
 logger = logging.getLogger(__name__)
@@ -74,6 +74,7 @@ async def upload_audio(
     file: UploadFile = File(...),
     userId: str = Form(default="anonymous"),
     courseId: str = Form(default="default"),
+    subjectId: str = Form(default=""),
 ):
     """Upload an audio file for processing.
 
@@ -100,6 +101,20 @@ async def upload_audio(
     # Probe duration
     duration = _probe_duration_from_bytes(raw_bytes, ext)
 
+    # Validate subject if provided
+    resolved_subject_id = None
+    subject_source = "unset"
+    if subjectId and subjectId.strip():
+        try:
+            resolved_subject_id = uuid.UUID(subjectId.strip())
+            with Session(_engine) as session:
+                subject = session.get(Subject, resolved_subject_id)
+                if not subject or not subject.is_active:
+                    raise HTTPException(status_code=400, detail="Subject not found or inactive")
+            subject_source = "manual"
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid subject ID format")
+
     # Create DB records
     audio_id = uuid.uuid4()
     job_id = uuid.uuid4()
@@ -109,6 +124,8 @@ async def upload_audio(
         id=audio_id,
         user_id=userId,
         course_id=courseId,
+        subject_id=resolved_subject_id,
+        subject_source=subject_source,
         filename=file.filename,
         uploaded_at=now,
         duration_seconds=duration,
