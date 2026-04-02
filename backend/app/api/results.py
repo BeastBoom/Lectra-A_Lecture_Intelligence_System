@@ -52,12 +52,23 @@ async def get_job_results(job_id: str):
         if ai and ai.payload:
             summary_text = ai.payload.get("summary") if isinstance(ai.payload, dict) else str(ai.payload)
 
+        # Notes from AI outputs
+        stmt_notes = select(AIOutput).where(
+            AIOutput.audio_id == job.audio_id,
+            AIOutput.output_type == "notes",
+        )
+        notes_ai = session.scalars(stmt_notes).first()
+        notes_payload = None
+        if notes_ai and notes_ai.payload:
+            notes_payload = notes_ai.payload if isinstance(notes_ai.payload, dict) else None
+
         return {
             "jobId": str(job.id),
             "state": job.state,
             "transcript": seg.text_clean if seg else None,
             "rawTranscript": seg.text_raw if seg else None,
             "summary": summary_text,
+            "notes": notes_payload,
             "denoisedAudioId": str(denoised.id) if denoised else None,
             "denoisedAudioUrl": f"/api/artifacts/{denoised.id}/download" if denoised else None,
         }

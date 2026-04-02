@@ -30,6 +30,7 @@ _WORKER_MAP: dict[str, str] = {
     "denoising":           "app.workers.denoise_worker",
     "transcribing":        "app.workers.transcription_worker",
     "summarizing":         "app.workers.ai_worker",
+    "generating_notes":    "app.workers.notes_worker",
 }
 
 # States the poller should look for

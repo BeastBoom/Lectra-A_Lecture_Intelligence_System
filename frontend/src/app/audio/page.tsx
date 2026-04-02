@@ -170,7 +170,10 @@ export default function AudioPage() {
                   <WaveformPlaceholder className="mb-3" progress={audio.status === "ready" ? 100 : 45} />
 
                   <h3 className="text-sm font-semibold truncate">{audio.title}</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">{audio.courseId || "No course"}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {audio.subjectName || audio.courseId || "No subject"}
+                    {audio.subjectSource === "ai_inferred" && " ✨"}
+                  </p>
 
                   <div className="flex items-center justify-between mt-3 text-xs text-muted-foreground">
                     <span>{audio.durationSeconds ? formatDuration(Math.round(audio.durationSeconds)) : "—"}</span>
@@ -188,7 +191,7 @@ export default function AudioPage() {
               <tr className="border-b border-border text-xs text-muted-foreground">
                 <th className="text-left p-3 w-8"></th>
                 <th className="text-left p-3">Title</th>
-                <th className="text-left p-3">Course</th>
+                <th className="text-left p-3">Subject</th>
                 <th className="text-left p-3">Duration</th>
                 <th className="text-left p-3">Status</th>
                 <th className="text-left p-3">Date</th>
@@ -214,7 +217,10 @@ export default function AudioPage() {
                       {audio.title}
                     </Link>
                   </td>
-                  <td className="p-3 text-muted-foreground">{audio.courseId || "—"}</td>
+                  <td className="p-3 text-muted-foreground">
+                    {audio.subjectName || audio.courseId || "—"}
+                    {audio.subjectSource === "ai_inferred" && " ✨"}
+                  </td>
                   <td className="p-3 font-mono text-xs">{audio.durationSeconds ? formatDuration(Math.round(audio.durationSeconds)) : "—"}</td>
                   <td className="p-3">
                     <span className={cn(

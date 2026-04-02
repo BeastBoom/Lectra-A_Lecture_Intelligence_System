@@ -11,7 +11,7 @@ from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
 
 from app.configs import DATABASE_URL
-from app.db.models import Artifact, Audio, Job, JobLog, TranscriptSegment, AIOutput
+from app.db.models import Artifact, Audio, Job, JobLog, TranscriptSegment, AIOutput, Subject, NoteSection
 
 router = APIRouter()
 _engine = create_engine(DATABASE_URL)
@@ -43,6 +43,15 @@ async def list_audios():
                 elif latest_job.state == "failed":
                     status = "error"
 
+            # Get subject info
+            subject_name = None
+            subject_id_str = None
+            if a.subject_id:
+                subject = session.get(Subject, a.subject_id)
+                if subject:
+                    subject_name = subject.name
+                    subject_id_str = str(subject.id)
+
             results.append({
                 "audioId": str(a.id),
                 "title": a.filename,
@@ -51,6 +60,9 @@ async def list_audios():
                 "status": status,
                 "courseId": a.course_id,
                 "userId": a.user_id,
+                "subjectId": subject_id_str,
+                "subjectName": subject_name,
+                "subjectSource": a.subject_source,
                 "metadata": a.metadata_,
             })
 
@@ -113,6 +125,26 @@ async def get_audio(audio_id: str):
                 else str(summary_out.payload)
             )
 
+        # Subject info
+        subject_name = None
+        subject_id_str = None
+        if audio.subject_id:
+            subject = session.get(Subject, audio.subject_id)
+            if subject:
+                subject_name = subject.name
+                subject_id_str = str(subject.id)
+
+        # Per-session notes (AIOutput type='notes')
+        notes_out = session.scalars(
+            select(AIOutput).where(
+                AIOutput.audio_id == aid,
+                AIOutput.output_type == "notes",
+            )
+        ).first()
+        notes_payload = None
+        if notes_out and notes_out.payload:
+            notes_payload = notes_out.payload if isinstance(notes_out.payload, dict) else None
+
         return {
             "audioId": str(audio.id),
             "title": audio.filename,
@@ -122,8 +154,12 @@ async def get_audio(audio_id: str):
             "courseId": audio.course_id,
             "userId": audio.user_id,
             "jobId": job_id,
+            "subjectId": subject_id_str,
+            "subjectName": subject_name,
+            "subjectSource": audio.subject_source,
             "metadata": audio.metadata_,
             "summary": summary_text,
+            "notes": notes_payload,
             "transcriptSnippet": (first_seg.text_clean or first_seg.text_raw or "")[:200] if first_seg else None,
             "artifacts": [
                 {

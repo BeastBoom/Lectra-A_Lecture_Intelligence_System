@@ -10,12 +10,16 @@ export interface AudioSummary {
   status: "ready" | "processing" | "error";
   courseId: string | null;
   userId: string | null;
+  subjectId: string | null;
+  subjectName: string | null;
+  subjectSource: "manual" | "ai_inferred" | "unset";
   metadata: Record<string, unknown> | null;
 }
 
 export interface AudioDetail extends AudioSummary {
   jobId: string | null;
   summary: string | null;
+  notes: NotesPayload | null;
   transcriptSnippet: string | null;
   artifacts: ArtifactSummary[];
 }
@@ -64,6 +68,57 @@ export interface UploadResponse {
   jobId: string;
   audioId: string;
   statusUrl: string;
+}
+
+// ── Subject types ───────────────────────────────────────────────────────────
+
+export interface Subject {
+  id: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  createdAt: string | null;
+  updatedAt: string | null;
+  userId: string | null;
+  sessionCount?: number;
+}
+
+export interface SubjectNotesResponse {
+  subjectId: string;
+  subjectName: string;
+  consolidatedNotes: string | null;
+  version: number;
+  lastUpdatedAt: string | null;
+  sections: NoteSection[];
+}
+
+export interface NoteSection {
+  id: string;
+  audioId: string;
+  sectionOrder: number;
+  title: string | null;
+  content: string;
+  timestampStart: number | null;
+  timestampEnd: number | null;
+  createdAt: string | null;
+}
+
+export interface NotesPayload {
+  title?: string;
+  lecture_summary?: string;
+  main_concepts?: string[];
+  sections?: {
+    title: string;
+    content: string;
+    timestamp_start: number | null;
+    timestamp_end: number | null;
+    key_terms?: string[];
+  }[];
+  important_terms?: { term: string; definition: string }[];
+  examples_mentioned?: string[];
+  possible_exam_points?: string[];
+  key_takeaways?: string[];
+  follow_up_topics?: string[];
 }
 
 // ── Document types ──────────────────────────────────────────────────────────
@@ -184,7 +239,8 @@ export interface UploadFile {
   size: number;
   duration?: number;
   progress: number;
-  stage: "upload" | "preprocess" | "transcribe" | "generate" | "ready" | "error";
+  stage: "upload" | "preprocess" | "transcribe" | "generate" | "notes" | "ready" | "error";
   jobId?: string;
   audioId?: string;
 }
+

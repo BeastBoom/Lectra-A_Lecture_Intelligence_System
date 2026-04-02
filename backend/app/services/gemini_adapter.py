@@ -48,3 +48,28 @@ def summarize(transcript: str) -> str:
             else:
                 raise
     raise RuntimeError(f"Gemini API failed after 3 retries: {last_error}")
+
+
+def generate_text(prompt: str) -> str:
+    """General-purpose Gemini text generation.
+
+    Used by notes_generator and subject_inference services.
+    Retries up to 3 times on rate-limit errors.
+    """
+    last_error = None
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+            )
+            return response.text.strip()
+        except Exception as e:
+            last_error = e
+            if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                wait = (attempt + 1) * 15
+                logger.warning(f"Rate limited, waiting {wait}s before retry ({attempt + 1}/3)...")
+                time.sleep(wait)
+            else:
+                raise
+    raise RuntimeError(f"Gemini API failed after 3 retries: {last_error}")

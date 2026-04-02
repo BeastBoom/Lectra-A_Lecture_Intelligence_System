@@ -62,6 +62,7 @@ JOB_STATES: list[str] = [
     "denoising",
     "transcribing",
     "summarizing",
+    "generating_notes",
     "completed",
 ]
 

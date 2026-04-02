@@ -4,55 +4,70 @@
  * Set NEXT_PUBLIC_API_URL in .env.local to point to the backend.
  * Default: http://localhost:8000
  */
+import type { AudioSummary, DashboardSummary, Subject, SubjectNotesResponse } from "@/types";
 
-import type {
-  AudioSummary,
-  AudioDetail,
-  ArtifactSummary,
-  TranscriptSegment,
-  JobStatus,
-  DashboardSummary,
-  UploadResponse,
-  Document,
-} from "@/types";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL
+  ? `${process.env.NEXT_PUBLIC_API_URL}/api`
+  : "http://localhost:8000/api";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
+function getAuthHeaders(): Record<string, string> {
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("lectra_token") : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers: {
-      ...init?.headers,
+      ...getAuthHeaders(),
+      ...(init?.headers || {}),
     },
   });
-
   if (!res.ok) {
-    const body = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
-    throw new Error(body.detail || body.error || `Server error ${res.status}`);
+    const text = await res.text().catch(() => "");
+    throw new Error(`API ${res.status}: ${text}`);
   }
-
   return res.json();
 }
 
-// ── Upload ──────────────────────────────────────────────────────────────────
+// ── Audio ───────────────────────────────────────────────────────────────────
+
+export async function listAudios(): Promise<AudioSummary[]> {
+  const data = await apiFetch<{ audios: AudioSummary[] }>("/audios");
+  return data.audios;
+}
+
+export async function getAudioDetail(audioId: string) {
+  return apiFetch<Record<string, unknown>>(`/audios/${audioId}`);
+}
+
+export async function deleteAudio(audioId: string): Promise<void> {
+  await apiFetch(`/audios/${audioId}`, { method: "DELETE" });
+}
 
 export async function uploadAudio(
   file: File,
   userId?: string,
   courseId?: string,
-  onProgress?: (pct: number) => void,
-): Promise<UploadResponse> {
+  subjectId?: string,
+  onProgress?: (pct: number) => void
+): Promise<{ jobId: string; audioId: string }> {
   const formData = new FormData();
   formData.append("file", file);
-  if (userId) formData.append("userId", userId);
-  if (courseId) formData.append("courseId", courseId);
+  formData.append("userId", userId || "anonymous");
+  formData.append("courseId", courseId || "default");
+  formData.append("subjectId", subjectId || "");
 
-  // Use XMLHttpRequest for upload progress tracking
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", `${API_BASE}/api/upload`);
+    xhr.open("POST", `${API_BASE}/upload`);
+
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("lectra_token")
+        : null;
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
 
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) {
@@ -62,105 +77,150 @@ export async function uploadAudio(
 
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
-        resolve(JSON.parse(xhr.responseText));
+        const data = JSON.parse(xhr.responseText);
+        resolve({
+          jobId: data.jobId || data.job_id,
+          audioId: data.audioId || data.audio_id,
+        });
       } else {
-        try {
-          const err = JSON.parse(xhr.responseText);
-          reject(new Error(err.detail || `Upload failed (${xhr.status})`));
-        } catch {
-          reject(new Error(`Upload failed (${xhr.status})`));
-        }
+        reject(new Error(`Upload failed: ${xhr.status}`));
       }
     };
 
-    xhr.onerror = () => reject(new Error("Network error during upload"));
+    xhr.onerror = () => reject(new Error("Upload failed"));
     xhr.send(formData);
   });
 }
 
 // ── Jobs ────────────────────────────────────────────────────────────────────
 
-export async function getJobStatus(jobId: string): Promise<JobStatus> {
-  return apiFetch(`/api/jobs/${jobId}/status`);
+export async function getJobStatus(
+  jobId: string
+): Promise<import("@/types").JobStatus> {
+  return apiFetch(`/jobs/${jobId}/status`);
 }
 
-export async function reprocessJob(jobId: string): Promise<{ jobId: string; state: string; message: string }> {
-  return apiFetch(`/api/jobs/${jobId}/reprocess`, { method: "POST" });
-}
-
-// ── Audios ──────────────────────────────────────────────────────────────────
-
-export async function listAudios(): Promise<AudioSummary[]> {
-  const data = await apiFetch<{ audios: AudioSummary[] }>("/api/audios");
-  return data.audios;
-}
-
-export async function getAudio(audioId: string): Promise<AudioDetail> {
-  return apiFetch(`/api/audios/${audioId}`);
-}
-
-export async function deleteAudio(audioId: string): Promise<{ message: string }> {
-  return apiFetch(`/api/audios/${audioId}`, { method: "DELETE" });
-}
-
-// ── Artifacts ───────────────────────────────────────────────────────────────
-
-export async function getArtifacts(audioId: string, type?: string): Promise<ArtifactSummary[]> {
-  const query = type ? `?type=${encodeURIComponent(type)}` : "";
-  const data = await apiFetch<{ artifacts: ArtifactSummary[] }>(`/api/audios/${audioId}/artifacts${query}`);
-  return data.artifacts;
-}
-
-export function getArtifactDownloadUrl(artifactId: string): string {
-  return `${API_BASE}/api/artifacts/${artifactId}/download`;
-}
-
-// ── Transcript ──────────────────────────────────────────────────────────────
-
-export async function getTranscript(audioId: string): Promise<TranscriptSegment[]> {
-  const data = await apiFetch<{
-    segments: {
-      id: string;
-      start: number;
-      end: number;
-      speakerLabel: string | null;
-      textRaw: string | null;
-      textClean: string | null;
-    }[];
-  }>(`/api/audios/${audioId}/transcript`);
-
-  // Map to the TranscriptSegment type with legacy compat fields
-  return data.segments.map((seg) => ({
-    id: seg.id,
-    start: seg.start,
-    end: seg.end,
-    speakerLabel: seg.speakerLabel,
-    textRaw: seg.textRaw,
-    textClean: seg.textClean,
-    // Legacy compat
-    text: seg.textClean || seg.textRaw || "",
-    speaker: seg.speakerLabel || undefined,
-    confidence: 1.0, // Backend doesn't track per-segment confidence
-  }));
-}
-
-// ── Documents ───────────────────────────────────────────────────────────────
-
-export async function listDocuments(courseId?: string): Promise<Document[]> {
-  const query = courseId ? `?courseId=${encodeURIComponent(courseId)}` : "";
-  const data = await apiFetch<{ documents: Document[] }>(`/api/documents${query}`);
-  return data.documents;
-}
-
-export async function uploadDocument(formData: FormData): Promise<Document> {
-  return apiFetch("/api/documents", {
-    method: "POST",
-    body: formData,
-  });
+export async function getJobResults(
+  jobId: string
+): Promise<Record<string, unknown>> {
+  return apiFetch(`/jobs/${jobId}/results`);
 }
 
 // ── Dashboard ───────────────────────────────────────────────────────────────
 
 export async function getDashboardSummary(): Promise<DashboardSummary> {
-  return apiFetch("/api/dashboard/summary");
+  return apiFetch("/dashboard/summary");
+}
+
+// ── Transcript ──────────────────────────────────────────────────────────────
+
+export async function getTranscript(
+  audioId: string
+): Promise<import("@/types").TranscriptSegment[]> {
+  const data = await apiFetch<{ segments: import("@/types").TranscriptSegment[] }>(`/audios/${audioId}/transcript`);
+  return data.segments ?? [];
+}
+
+// ── Audio Detail & Artifacts ────────────────────────────────────────────────
+
+export async function getAudio(audioId: string): Promise<import("@/types").AudioDetail> {
+  return apiFetch(`/audios/${audioId}`);
+}
+
+export async function getArtifacts(audioId: string): Promise<import("@/types").ArtifactSummary[]> {
+  const data = await apiFetch<{ artifacts: import("@/types").ArtifactSummary[] }>(`/audios/${audioId}/artifacts`).catch(() => ({ artifacts: [] }));
+  return data.artifacts ?? [];
+}
+
+export function getArtifactDownloadUrl(artifactId: string): string {
+  const base = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  return `${base}/api/artifacts/${artifactId}/download`;
+}
+
+// ── Documents ───────────────────────────────────────────────────────────────
+
+export async function listDocuments(): Promise<import("@/types").Document[]> {
+  const data = await apiFetch<{ documents: import("@/types").Document[] }>("/documents");
+  return data.documents ?? [];
+}
+
+export async function uploadDocument(formData: FormData): Promise<import("@/types").Document> {
+  return apiFetch<import("@/types").Document>("/documents", {
+    method: "POST",
+    body: formData,
+  });
+}
+
+// ── Subjects ────────────────────────────────────────────────────────────────
+
+export async function listSubjects(userId?: string): Promise<Subject[]> {
+  const params = userId ? `?user_id=${encodeURIComponent(userId)}` : "";
+  const data = await apiFetch<{ subjects: Subject[] }>(`/subjects${params}`);
+  return data.subjects;
+}
+
+export async function createSubject(
+  name: string,
+  description?: string,
+  userId?: string
+): Promise<Subject> {
+  return apiFetch<Subject>("/subjects", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name,
+      description: description || null,
+      user_id: userId || null,
+    }),
+  });
+}
+
+export async function getSubject(subjectId: string): Promise<Subject> {
+  return apiFetch<Subject>(`/subjects/${subjectId}`);
+}
+
+export async function updateSubject(
+  subjectId: string,
+  data: { name?: string; description?: string; is_active?: boolean }
+): Promise<Subject> {
+  return apiFetch<Subject>(`/subjects/${subjectId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteSubject(subjectId: string): Promise<void> {
+  await apiFetch(`/subjects/${subjectId}`, { method: "DELETE" });
+}
+
+export async function getSubjectNotes(
+  subjectId: string
+): Promise<SubjectNotesResponse> {
+  return apiFetch<SubjectNotesResponse>(`/subjects/${subjectId}/notes`);
+}
+
+export async function getSubjectSessions(subjectId: string) {
+  return apiFetch<{
+    subjectId: string;
+    sessions: {
+      audioId: string;
+      title: string;
+      durationSeconds: number | null;
+      uploadedAt: string | null;
+      subjectSource: string;
+    }[];
+  }>(`/subjects/${subjectId}/sessions`);
+}
+
+export async function updateAudioSubject(
+  audioId: string,
+  subjectId: string | null
+): Promise<{
+  audioId: string;
+  subjectId: string | null;
+  subjectSource: string;
+}> {
+  const params = subjectId ? `?subject_id=${subjectId}` : "";
+  return apiFetch(`/audios/${audioId}/subject${params}`, { method: "PATCH" });
 }
