@@ -20,6 +20,7 @@ export interface AudioDetail extends AudioSummary {
   jobId: string | null;
   summary: string | null;
   notes: NotesPayload | null;
+  quiz: QuizPayload | null;
   transcriptSnippet: string | null;
   artifacts: ArtifactSummary[];
 }
@@ -119,6 +120,21 @@ export interface NotesPayload {
   possible_exam_points?: string[];
   key_takeaways?: string[];
   follow_up_topics?: string[];
+}
+
+export interface QuizPayload {
+  flashcards: {
+    id?: string;
+    front: string;
+    back: string;
+  }[];
+  mcqs: {
+    id?: string;
+    question: string;
+    options: string[];
+    correctIndex: number;
+    explanation: string;
+  }[];
 }
 
 // ── Document types ──────────────────────────────────────────────────────────
