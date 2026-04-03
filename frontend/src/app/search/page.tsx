@@ -4,10 +4,16 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Search as SearchIcon, AudioLines, FileText, StickyNote, BrainCircuit, Loader2 } from "lucide-react";
-import { listAudios, listDocuments } from "@/lib/api";
-import { mockNotes } from "@/lib/mock/notes";
+import { listAudios, listDocuments, listSubjects, getSubjectNotes } from "@/lib/api";
 import type { AudioSummary, Document } from "@/types";
 import { cn, truncate } from "@/lib/utils";
+
+interface NoteResult {
+  id: string;
+  subjectName: string;
+  title: string;
+  content: string;
+}
 
 const categories = ["All", "Audio", "Documents", "Notes", "Quiz"] as const;
 
@@ -17,26 +23,64 @@ function SearchContent() {
   const [activeCategory, setActiveCategory] = useState<(typeof categories)[number]>("All");
   const [audios, setAudios] = useState<AudioSummary[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [notes, setNotes] = useState<NoteResult[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      listAudios().catch(() => []),
-      listDocuments().catch(() => []),
-    ]).then(([a, d]) => {
-      setAudios(a);
-      setDocuments(d);
-    }).finally(() => setLoading(false));
+    async function loadData() {
+      try {
+        const [audioList, docList, subjectList] = await Promise.all([
+          listAudios().catch(() => []),
+          listDocuments().catch(() => []),
+          listSubjects().catch(() => []),
+        ]);
+        setAudios(audioList);
+        setDocuments(docList);
+
+        // Fetch notes from each subject
+        const noteResults: NoteResult[] = [];
+        for (const subject of subjectList) {
+          try {
+            const subjectNotes = await getSubjectNotes(subject.id);
+            if (subjectNotes.sections && subjectNotes.sections.length > 0) {
+              for (const section of subjectNotes.sections) {
+                noteResults.push({
+                  id: section.id,
+                  subjectName: subjectNotes.subjectName,
+                  title: section.title || subjectNotes.subjectName,
+                  content: section.content,
+                });
+              }
+            }
+            if (subjectNotes.consolidatedNotes) {
+              noteResults.push({
+                id: `consolidated-${subject.id}`,
+                subjectName: subjectNotes.subjectName,
+                title: `${subjectNotes.subjectName} — Consolidated Notes`,
+                content: subjectNotes.consolidatedNotes,
+              });
+            }
+          } catch {
+            // Skip subjects with no notes
+          }
+        }
+        setNotes(noteResults);
+      } catch (err) {
+        console.error("Search data load error:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
   }, []);
 
   const hasQuery = query.length > 0;
+  const q = query.toLowerCase();
 
-  const audioResults = audios.filter(
-    (a) => a.title.toLowerCase().includes(query.toLowerCase())
-  );
-  const docResults = documents.filter((d) => d.title.toLowerCase().includes(query.toLowerCase()));
-  const noteResults = mockNotes.filter(
-    (n) => n.title.toLowerCase().includes(query.toLowerCase()) || n.content.toLowerCase().includes(query.toLowerCase())
+  const audioResults = audios.filter((a) => a.title.toLowerCase().includes(q));
+  const docResults = documents.filter((d) => d.title.toLowerCase().includes(q));
+  const noteResults = notes.filter(
+    (n) => n.title.toLowerCase().includes(q) || n.content.toLowerCase().includes(q)
   );
 
   return (
@@ -91,7 +135,7 @@ function SearchContent() {
                 {audioResults.map((audio) => (
                   <motion.div key={audio.audioId} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass rounded-lg p-4 hover:bg-muted/30 cursor-pointer transition-colors">
                     <p className="text-sm font-medium">{audio.title}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{audio.courseId || "—"} · {audio.status}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{audio.subjectName || audio.courseId || "—"} · {audio.status}</p>
                   </motion.div>
                 ))}
               </div>
@@ -129,6 +173,13 @@ function SearchContent() {
               </div>
             </div>
           )}
+
+          {audioResults.length === 0 && docResults.length === 0 && noteResults.length === 0 && (
+            <div className="text-center py-16">
+              <SearchIcon className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+              <p className="text-muted-foreground">No results found for &ldquo;{query}&rdquo;</p>
+            </div>
+          )}
         </div>
       ) : (
         <div className="text-center py-16">
@@ -147,4 +198,3 @@ export default function SearchPage() {
     </Suspense>
   );
 }
-
