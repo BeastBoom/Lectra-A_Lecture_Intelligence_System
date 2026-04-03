@@ -12,12 +12,13 @@ import {
   Zap,
   Clock,
   TrendingUp,
+  HardDrive,
 } from "lucide-react";
 import { KpiCard } from "@/components/shared/KpiCard";
 import { SkeletonCard } from "@/components/shared/SkeletonCard";
 import { cn } from "@/lib/utils";
-import { getDashboardSummary, listAudios } from "@/lib/api";
-import type { DashboardSummary, AudioSummary, Activity } from "@/types";
+import { getDashboardSummary, listAudios, getAnalytics } from "@/lib/api";
+import type { DashboardSummary, AudioSummary, Activity, AnalyticsData } from "@/types";
 import Link from "next/link";
 
 const activityIcons = {
@@ -32,17 +33,20 @@ export default function DashboardPage() {
   const router = useRouter();
   const [stats, setStats] = useState<DashboardSummary | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [aiLabel, setAiLabel] = useState<string>("idle");
 
   useEffect(() => {
     async function load() {
       try {
-        const [summary, audios] = await Promise.all([
+        const [summary, audios, analyticsData] = await Promise.all([
           getDashboardSummary(),
           listAudios(),
+          getAnalytics().catch(() => null),
         ]);
         setStats(summary);
+        setAnalytics(analyticsData);
 
         // Derive recent activity from audios
         const acts: Activity[] = audios.slice(0, 6).map((a: AudioSummary) => ({
@@ -75,6 +79,14 @@ export default function DashboardPage() {
 
   const aiStatus = aiStatusConfig[aiLabel] || aiStatusConfig.idle;
 
+  // Compute sidebar stats from real analytics data
+  const avgProcTime = analytics?.avgProcessingSeconds
+    ? `~${Math.round(analytics.avgProcessingSeconds)}s avg`
+    : "—";
+  const storageMb = analytics?.totalStorageMb ?? 0;
+  const storageGb = (storageMb / 1000).toFixed(1);
+  const storagePct = Math.min(100, Math.round((storageMb / 10000) * 100)); // 10GB max
+
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
       {/* Header */}
@@ -102,10 +114,10 @@ export default function DashboardPage() {
           </>
         ) : stats ? (
           <>
-            <KpiCard title="Lectures Processed" value={stats.processedToday} icon={AudioLines} trend="+12%" />
+            <KpiCard title="Lectures Processed" value={stats.processedToday} icon={AudioLines} />
             <KpiCard title="Pending Uploads" value={stats.pendingUploads} icon={Clock} />
-            <KpiCard title="Notes Updated" value={stats.notesUpdated} icon={StickyNote} trend="+5%" />
-            <KpiCard title="Flashcards Generated" value={stats.quizGenerated} icon={BrainCircuit} trend="+18%" />
+            <KpiCard title="Notes Updated" value={stats.notesUpdated} icon={StickyNote} />
+            <KpiCard title="Flashcards Generated" value={stats.quizGenerated} icon={BrainCircuit} />
           </>
         ) : (
           <p className="text-sm text-muted-foreground col-span-4">Could not load dashboard data.</p>
@@ -178,37 +190,44 @@ export default function DashboardPage() {
             </motion.div>
           </Link>
 
-          {/* Stats card */}
+          {/* Stats card — now using real data */}
           <div className="glass rounded-xl p-5">
-            <h3 className="text-sm font-semibold mb-4">This Week</h3>
+            <h3 className="text-sm font-semibold mb-4">System Stats</h3>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">Processing Time</span>
-                <span className="text-xs font-medium">~38s avg</span>
+                <span className="text-xs font-medium">{avgProcTime}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Accuracy</span>
-                <span className="text-xs font-medium text-primary">91.2%</span>
+                <span className="text-xs text-muted-foreground">Total Processed</span>
+                <span className="text-xs font-medium text-primary">{analytics?.totalProcessed ?? 0}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">Storage Used</span>
-                <span className="text-xs font-medium">2.3 GB</span>
+                <span className="text-xs font-medium">{storageGb} GB</span>
               </div>
               <div className="h-1.5 rounded-full bg-muted overflow-hidden mt-2">
-                <div className="h-full w-[23%] rounded-full bg-primary" />
+                <div className="h-full rounded-full bg-primary" style={{ width: `${storagePct}%` }} />
               </div>
-              <p className="text-[10px] text-muted-foreground">2.3 / 10 GB used</p>
+              <p className="text-[10px] text-muted-foreground">{storageGb} / 10 GB used</p>
             </div>
           </div>
 
-          {/* Trend indicator */}
+          {/* Queue Health */}
           <div className="glass rounded-xl p-5">
             <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="h-4 w-4 text-primary" />
-              <h3 className="text-sm font-semibold">Productivity</h3>
+              <HardDrive className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-semibold">Queue Health</h3>
             </div>
-            <p className="text-2xl font-bold text-primary">+23%</p>
-            <p className="text-xs text-muted-foreground">vs. last week</p>
+            <span className={cn(
+              "text-sm font-medium px-2.5 py-0.5 rounded-full capitalize",
+              analytics?.queueHealth === "healthy" ? "bg-green-500/10 text-green-500" :
+              analytics?.queueHealth === "busy" ? "bg-yellow-500/10 text-yellow-500" :
+              analytics?.queueHealth === "overloaded" ? "bg-red-500/10 text-red-500" :
+              "bg-muted text-muted-foreground"
+            )}>
+              {analytics?.queueHealth ?? "—"}
+            </span>
           </div>
         </div>
       </div>
