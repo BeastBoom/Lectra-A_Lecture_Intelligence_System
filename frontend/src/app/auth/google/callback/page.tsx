@@ -15,6 +15,7 @@ function CallbackHandler() {
     useEffect(() => {
         const code = searchParams.get("code");
         if (!code) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setError("No authorization code received from Google.");
             return;
         }

@@ -12,3 +12,5 @@ pydub
 openai-whisper
 google-genai
 httpx
+flask
+flask-cors

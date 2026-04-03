@@ -3,51 +3,23 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Activity, BarChart3, Clock, HardDrive, Gauge, Loader2 } from "lucide-react";
-import { getDashboardSummary, listAudios } from "@/lib/api";
+import { getAnalytics } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { AnalyticsData } from "@/types";
 
-// Fallback chart data (backend doesn't expose time-series analytics yet)
-function generateFallbackChartData(): AnalyticsData {
-  const today = new Date();
-  const uploadTrend = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(d.getDate() - (6 - i));
-    return { date: d.toISOString().slice(0, 10), count: Math.floor(Math.random() * 5) + 1 };
-  });
-  const processingTimes = uploadTrend.map((d) => ({
-    date: d.date,
-    avgMs: 20000 + Math.floor(Math.random() * 30000),
-  }));
-  return {
-    uploadTrend,
-    processingTimes,
-    confidenceAvg: 0.91,
-    totalProcessed: 0,
-    queueHealth: "healthy",
-    totalStorageMb: 2300,
-  };
-}
-
 export default function AnalyticsPage() {
-  const [data, setData] = useState<AnalyticsData>(generateFallbackChartData());
+  const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
       try {
-        const [summary, audios] = await Promise.all([
-          getDashboardSummary().catch(() => null),
-          listAudios().catch(() => []),
-        ]);
-
-        setData((prev) => ({
-          ...prev,
-          totalProcessed: summary?.processedToday ?? audios.length,
-          queueHealth: summary && summary.pendingUploads > 5 ? "busy" : "healthy",
-        }));
-      } catch {
-        // Keep fallback data
+        const analyticsData = await getAnalytics();
+        setData(analyticsData);
+      } catch (err) {
+        console.error("Analytics load error:", err);
+        setError("Failed to load analytics data");
       } finally {
         setLoading(false);
       }
@@ -80,6 +52,21 @@ export default function AnalyticsPage() {
     );
   }
 
+  if (error || !data) {
+    return (
+      <div className="space-y-6 max-w-7xl mx-auto">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
+          <p className="text-sm text-muted-foreground mt-1">Platform performance and usage statistics</p>
+        </div>
+        <div className="text-center py-16 glass rounded-xl">
+          <BarChart3 className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+          <p className="text-muted-foreground">{error || "No analytics data available. Upload audio to start generating data."}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       <div>
@@ -99,9 +86,11 @@ export default function AnalyticsPage() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="glass rounded-xl p-5">
           <div className="flex items-center gap-2 mb-2">
             <Gauge className="h-4 w-4 text-primary" />
-            <span className="text-xs text-muted-foreground">Avg Confidence</span>
+            <span className="text-xs text-muted-foreground">Avg Processing</span>
           </div>
-          <p className="text-2xl font-bold">{Math.round(data.confidenceAvg * 100)}%</p>
+          <p className="text-2xl font-bold">
+            {data.avgProcessingSeconds ? `${Math.round(data.avgProcessingSeconds)}s` : "—"}
+          </p>
         </motion.div>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass rounded-xl p-5">
           <div className="flex items-center gap-2 mb-2">
@@ -130,8 +119,8 @@ export default function AnalyticsPage() {
               <Recharts.ResponsiveContainer width="100%" height="100%">
                 <Recharts.BarChart data={data.uploadTrend}>
                   <Recharts.CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <Recharts.XAxis dataKey="date" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v: string) => v.slice(5)} />
-                  <Recharts.YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
+                  <Recharts.XAxis dataKey="date" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v: any) => String(v).slice(5)} />
+                  <Recharts.YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} />
                   <Recharts.Tooltip
                     contentStyle={{
                       backgroundColor: "hsl(var(--card))",
@@ -156,8 +145,8 @@ export default function AnalyticsPage() {
               <Recharts.ResponsiveContainer width="100%" height="100%">
                 <Recharts.LineChart data={data.processingTimes}>
                   <Recharts.CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <Recharts.XAxis dataKey="date" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v: string) => v.slice(5)} />
-                  <Recharts.YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v: number) => `${v / 1000}s`} />
+                  <Recharts.XAxis dataKey="date" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v: any) => String(v).slice(5)} />
+                  <Recharts.YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v: any) => `${(Number(v) / 1000).toFixed(0)}s`} />
                   <Recharts.Tooltip
                     contentStyle={{
                       backgroundColor: "hsl(var(--card))",
@@ -165,6 +154,7 @@ export default function AnalyticsPage() {
                       borderRadius: "8px",
                       fontSize: "12px",
                     }}
+                    formatter={(value: any) => [`${(Number(value) / 1000).toFixed(1)}s`, "Avg Time"]}
                   />
                   <Recharts.Line type="monotone" dataKey="avgMs" stroke="hsl(142 76% 36%)" strokeWidth={2} dot={{ fill: "hsl(142 76% 36%)", r: 4 }} />
                 </Recharts.LineChart>

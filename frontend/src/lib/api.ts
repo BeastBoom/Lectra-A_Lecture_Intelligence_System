@@ -38,8 +38,8 @@ export async function listAudios(): Promise<AudioSummary[]> {
   return data.audios;
 }
 
-export async function getAudioDetail(audioId: string) {
-  return apiFetch<Record<string, unknown>>(`/audios/${audioId}`);
+export async function getAudioDetail(audioId: string): Promise<import("@/types").AudioDetail> {
+  return apiFetch<import("@/types").AudioDetail>(`/audios/${audioId}`);
 }
 
 export async function deleteAudio(audioId: string): Promise<void> {
@@ -110,6 +110,10 @@ export async function getJobResults(
 
 export async function getDashboardSummary(): Promise<DashboardSummary> {
   return apiFetch("/dashboard/summary");
+}
+
+export async function getAnalytics(): Promise<import("@/types").AnalyticsData> {
+  return apiFetch("/dashboard/analytics");
 }
 
 // ── Transcript ──────────────────────────────────────────────────────────────

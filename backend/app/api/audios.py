@@ -145,6 +145,19 @@ async def get_audio(audio_id: str):
         if notes_out and notes_out.payload:
             notes_payload = notes_out.payload if isinstance(notes_out.payload, dict) else None
 
+        # Quiz data (AIOutput type='quiz_flashcards')
+        quiz_out = session.scalars(
++            select(AIOutput)
++            .where(
++                AIOutput.audio_id == aid,
++                AIOutput.output_type == "quiz_flashcards",
++            )
++            .order_by(AIOutput.created_at.desc())
++       ).first()
+        quiz_payload = None
+        if quiz_out and quiz_out.payload:
+            quiz_payload = quiz_out.payload if isinstance(quiz_out.payload, dict) else None
+
         return {
             "audioId": str(audio.id),
             "title": audio.filename,
@@ -160,6 +173,7 @@ async def get_audio(audio_id: str):
             "metadata": audio.metadata_,
             "summary": summary_text,
             "notes": notes_payload,
+            "quiz": quiz_payload,
             "transcriptSnippet": (first_seg.text_clean or first_seg.text_raw or "")[:200] if first_seg else None,
             "artifacts": [
                 {

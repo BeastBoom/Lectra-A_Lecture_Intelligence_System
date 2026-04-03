@@ -37,9 +37,11 @@ export function TopNavBar() {
   const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
     try {
       const u = getUser();
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (u) setUser(u);
     } catch { /* ignore parse errors */ }
 

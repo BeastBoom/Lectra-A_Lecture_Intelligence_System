@@ -56,6 +56,7 @@ export default function SettingsPage() {
   useEffect(() => {
     try {
       const raw = localStorage.getItem("lectra_user");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (raw) setUser(JSON.parse(raw));
     } catch {
       /* ignore */

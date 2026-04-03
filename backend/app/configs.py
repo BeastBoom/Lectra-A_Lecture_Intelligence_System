@@ -63,6 +63,7 @@ JOB_STATES: list[str] = [
     "transcribing",
     "summarizing",
     "generating_notes",
+    "generating_quiz",
     "completed",
 ]
 

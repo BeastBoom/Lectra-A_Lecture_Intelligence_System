@@ -62,6 +62,20 @@ async def get_job_results(job_id: str):
         if notes_ai and notes_ai.payload:
             notes_payload = notes_ai.payload if isinstance(notes_ai.payload, dict) else None
 
+        # Quiz from AI outputs
+        stmt_quiz = (
++            select(AIOutput)
++            .where(
++                AIOutput.audio_id == job.audio_id,
++                AIOutput.output_type == "quiz_flashcards",
++            )
++            .order_by(AIOutput.created_at.desc())
++       )
+        quiz_ai = session.scalars(stmt_quiz).first()
+        quiz_payload = None
+        if quiz_ai and quiz_ai.payload:
+            quiz_payload = quiz_ai.payload if isinstance(quiz_ai.payload, dict) else None
+
         return {
             "jobId": str(job.id),
             "state": job.state,
@@ -69,6 +83,7 @@ async def get_job_results(job_id: str):
             "rawTranscript": seg.text_raw if seg else None,
             "summary": summary_text,
             "notes": notes_payload,
+            "quiz": quiz_payload,
             "denoisedAudioId": str(denoised.id) if denoised else None,
             "denoisedAudioUrl": f"/api/artifacts/{denoised.id}/download" if denoised else None,
         }
