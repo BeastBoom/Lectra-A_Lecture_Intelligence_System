@@ -14,7 +14,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-_start_time = time.time()
+_start_time = time.monotonic()
 
 from app.api.upload import router as upload_router
 from app.api.jobs import router as jobs_router
@@ -94,6 +94,6 @@ async def health_check() -> dict:
         "status": "ok",
         "service": "lectra-backend",
         "version": app.version,
-        "uptime_seconds": round(time.time() - _start_time, 1),
+        "uptime_seconds": round(time.monotonic() - _start_time, 1),
     }
 
