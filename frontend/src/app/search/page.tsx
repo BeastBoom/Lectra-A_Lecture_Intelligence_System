@@ -38,33 +38,33 @@ function SearchContent() {
         setDocuments(docList);
 
         // Fetch notes from each subject
-        const noteResults: NoteResult[] = [];
-        for (const subject of subjectList) {
-          try {
-            const subjectNotes = await getSubjectNotes(subject.id);
-            if (subjectNotes.sections && subjectNotes.sections.length > 0) {
-              for (const section of subjectNotes.sections) {
-                noteResults.push({
-                  id: section.id,
-                  subjectName: subjectNotes.subjectName,
-                  title: section.title || subjectNotes.subjectName,
-                  content: section.content,
-                });
-              }
-            }
-            if (subjectNotes.consolidatedNotes) {
-              noteResults.push({
-                id: `consolidated-${subject.id}`,
-                subjectName: subjectNotes.subjectName,
-                title: `${subjectNotes.subjectName} — Consolidated Notes`,
-                content: subjectNotes.consolidatedNotes,
-              });
-            }
-          } catch {
-            // Skip subjects with no notes
-          }
-        }
-        setNotes(noteResults);
+        const notesBySubject = await Promise.all(
++          subjectList.map(async (subject) => {
++            try {
++              const subjectNotes = await getSubjectNotes(subject.id);
++              const entries: NoteResult[] = subjectNotes.sections.map((section) => ({
++                id: section.id,
++                subjectName: subjectNotes.subjectName,
++                title: section.title || subjectNotes.subjectName,
++                content: section.content,
++              }));
++
++              if (subjectNotes.consolidatedNotes) {
++                entries.push({
++                  id: `consolidated-${subject.id}`,
++                  subjectName: subjectNotes.subjectName,
++                  title: `${subjectNotes.subjectName} — Consolidated Notes`,
++                  content: subjectNotes.consolidatedNotes,
++                });
++              }
++
++              return entries;
++            } catch {
++              return [];
++            }
++          })
++        );
++        setNotes(notesBySubject.flat());
       } catch (err) {
         console.error("Search data load error:", err);
       } finally {
