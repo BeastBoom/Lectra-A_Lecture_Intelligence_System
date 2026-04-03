@@ -28,12 +28,16 @@ export default function CourseDetailPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [subjectData, sessionsData] = await Promise.all([
-          getSubject(id),
-          getSubjectSessions(id),
-        ]);
-        setSubject(subjectData);
-        setSessions(sessionsData.sessions || []);
+        const subjectData = await getSubject(id);
++        setSubject(subjectData);
++
++        try {
++          const sessionsData = await getSubjectSessions(id);
++          setSessions(sessionsData.sessions || []);
++        } catch (err) {
++          console.error("Failed to load subject sessions:", err);
++          setSessions([]);
++        }
 
         // Check if notes exist
         try {
