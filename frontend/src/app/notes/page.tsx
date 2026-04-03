@@ -40,6 +40,7 @@ export default function NotesPage() {
   // Load notes when subject changes
   useEffect(() => {
     if (!selectedSubjectId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setNotesData(null);
       return;
     }
@@ -54,6 +55,7 @@ export default function NotesPage() {
   // Auto-select first section when notes load
   useEffect(() => {
     if (notesData?.sections?.length && !selectedSection) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedSection(notesData.sections[0]);
     }
   }, [notesData, selectedSection]);

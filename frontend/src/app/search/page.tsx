@@ -6,7 +6,6 @@ import { motion } from "framer-motion";
 import { Search as SearchIcon, AudioLines, FileText, StickyNote, BrainCircuit, Loader2 } from "lucide-react";
 import { listAudios, listDocuments } from "@/lib/api";
 import { mockNotes } from "@/lib/mock/notes";
-import { mockFlashcardDecks } from "@/lib/mock/quiz";
 import type { AudioSummary, Document } from "@/types";
 import { cn, truncate } from "@/lib/utils";
 
