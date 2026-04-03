@@ -237,6 +237,7 @@ export interface AnalyticsData {
   totalProcessed: number;
   queueHealth: "healthy" | "busy" | "overloaded";
   totalStorageMb: number;
+  avgProcessingSeconds?: number;
 }
 
 export interface Activity {
