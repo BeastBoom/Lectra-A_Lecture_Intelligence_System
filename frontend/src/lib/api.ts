@@ -112,6 +112,10 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
   return apiFetch("/dashboard/summary");
 }
 
+export async function getAnalytics(): Promise<import("@/types").AnalyticsData> {
+  return apiFetch("/dashboard/analytics");
+}
+
 // ── Transcript ──────────────────────────────────────────────────────────────
 
 export async function getTranscript(
