@@ -29,15 +29,15 @@ export default function CourseDetailPage() {
     async function load() {
       try {
         const subjectData = await getSubject(id);
-+        setSubject(subjectData);
-+
-+        try {
-+          const sessionsData = await getSubjectSessions(id);
-+          setSessions(sessionsData.sessions || []);
-+        } catch (err) {
-+          console.error("Failed to load subject sessions:", err);
-+          setSessions([]);
-+        }
+        setSubject(subjectData);
+
+        try {
+          const sessionsData = await getSubjectSessions(id);
+          setSessions(sessionsData.sessions || []);
+        } catch (err) {
+          console.error("Failed to load subject sessions:", err);
+          setSessions([]);
+        }
 
         // Check if notes exist
         try {
