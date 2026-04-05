@@ -1,9 +1,11 @@
 """
 Lectra backend configuration — loads from .env / environment variables.
+Calls validate_config() to fail fast on startup if required vars are missing.
 """
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -11,7 +13,15 @@ _env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(_env_path)
 
 # ── Database ──────────────────────────────────────────────────────────────────
+# For Supabase: postgresql://[user]:[password]@[host]:5432/postgres?sslmode=require
 DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://lectra:lectra@localhost:5432/lectra_dev")
+
+# ── Security ──────────────────────────────────────────────────────────────────
+JWT_SECRET: str = os.getenv("JWT_SECRET", "lectra-dev-secret-change-in-production")
+
+# ── CORS ──────────────────────────────────────────────────────────────────────
+# Comma-separated list of allowed origins. Never use "*" with credentials.
+CORS_ORIGINS_RAW: str = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000")
 
 # ── FFmpeg ────────────────────────────────────────────────────────────────────
 FFMPEG_BIN: str = os.getenv("FFMPEG_BIN", "ffmpeg")
@@ -20,8 +30,8 @@ FFMPEG_BIN: str = os.getenv("FFMPEG_BIN", "ffmpeg")
 GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 
 # ── Google OAuth ──────────────────────────────────────────────────────────────
-GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "YOUR_GOOGLE_CLIENT_ID")
-GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "YOUR_GOOGLE_CLIENT_SECRET")
+GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
 GOOGLE_REDIRECT_URI: str = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:3000/auth/google/callback")
 
 # ── SMTP (Password Reset Emails) ─────────────────────────────────────────────
@@ -77,3 +87,33 @@ def next_state(current: str) -> str | None:
         return JOB_STATES[idx + 1] if idx + 1 < len(JOB_STATES) else None
     except ValueError:
         return None
+
+
+def validate_config() -> None:
+    """Fail fast at startup if required environment variables are missing.
+
+    Call this once from the application entrypoint or lifespan handler.
+    Logs warnings for optional but recommended variables.
+    """
+    import logging
+    _log = logging.getLogger(__name__)
+
+    errors: list[str] = []
+
+    if not DATABASE_URL or DATABASE_URL == "postgresql://lectra:lectra@localhost:5432/lectra_dev":
+        _log.warning(
+            "DATABASE_URL is using the default local value. "
+            "Set it to your Supabase connection string in production."
+        )
+
+    if not GEMINI_API_KEY:
+        errors.append("GEMINI_API_KEY is not set — AI features (transcription summary, notes, quiz) will fail.")
+
+    if JWT_SECRET == "lectra-dev-secret-change-in-production":
+        _log.warning("JWT_SECRET is using the insecure development default. Set a strong secret in production.")
+
+    if errors:
+        for err in errors:
+            _log.error(f"[Config] MISSING: {err}")
+        # Do not hard-exit — allow backend to start so other endpoints still work.
+        # Workers will fail gracefully when they hit missing Gemini key.

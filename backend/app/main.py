@@ -6,14 +6,23 @@ from __future__ import annotations
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"  # Fix OpenMP conflict (PyTorch + Anaconda numpy)
 
-import threading
 import logging
+import threading
 import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
+# ── Logging — configured once, at the entrypoint ─────────────────────────────
+logging.basicConfig(
+    level=logging.WARNING,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logging.getLogger("app").setLevel(logging.INFO)
+
+logger = logging.getLogger(__name__)
 _start_time = time.monotonic()
 
 from app.api.upload import router as upload_router
@@ -25,7 +34,12 @@ from app.api.documents import router as documents_router
 from app.api.auth import router as auth_router
 from app.api.subjects import router as subjects_router
 
-logger = logging.getLogger(__name__)
+# ── CORS origins — never use "*" with credentials (browser blocks it) ────────
+_raw_origins = os.getenv(
+    "CORS_ORIGINS",
+    "http://localhost:3000,http://localhost:8000",
+)
+CORS_ORIGINS: list[str] = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 
 # ── Background worker thread ─────────────────────────────────────────────────
 _worker_stop = threading.Event()
@@ -34,7 +48,6 @@ _worker_stop = threading.Event()
 def _run_worker_poller():
     """Run the job poller loop in a background thread."""
     from app.workers.worker_poller import process_one
-    import time
 
     logger.info("Background worker poller started")
     while not _worker_stop.is_set():
@@ -50,8 +63,14 @@ def _run_worker_poller():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Validate required env vars at startup
+    from app.configs import validate_config
+    validate_config()
+
     # Startup: launch the worker poller in a daemon thread
-    worker_thread = threading.Thread(target=_run_worker_poller, daemon=True, name="worker-poller")
+    worker_thread = threading.Thread(
+        target=_run_worker_poller, daemon=True, name="worker-poller"
+    )
     worker_thread.start()
     logger.info("Worker poller thread launched")
     yield
@@ -68,10 +87,28 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — permissive for local dev
+
+# ── Global exception handler — all unhandled errors return structured JSON ────
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(
+        f"Unhandled error on {request.method} {request.url.path}: {exc}",
+        exc_info=True,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={
+            "success": False,
+            "error": "An internal server error occurred.",
+            "detail": str(exc),
+        },
+    )
+
+
+# ── CORS ──────────────────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -96,4 +133,3 @@ async def health_check() -> dict:
         "version": app.version,
         "uptime_seconds": round(time.monotonic() - _start_time, 1),
     }
-

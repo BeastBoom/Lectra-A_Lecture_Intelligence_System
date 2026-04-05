@@ -147,13 +147,13 @@ async def get_audio(audio_id: str):
 
         # Quiz data (AIOutput type='quiz_flashcards')
         quiz_out = session.scalars(
-+            select(AIOutput)
-+            .where(
-+                AIOutput.audio_id == aid,
-+                AIOutput.output_type == "quiz_flashcards",
-+            )
-+            .order_by(AIOutput.created_at.desc())
-+       ).first()
+            select(AIOutput)
+            .where(
+                AIOutput.audio_id == aid,
+                AIOutput.output_type == "quiz_flashcards",
+            )
+            .order_by(AIOutput.created_at.desc())
+       ).first()
         quiz_payload = None
         if quiz_out and quiz_out.payload:
             quiz_payload = quiz_out.payload if isinstance(quiz_out.payload, dict) else None

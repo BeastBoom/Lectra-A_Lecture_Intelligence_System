@@ -10,19 +10,14 @@ import time
 import traceback
 from datetime import datetime, timezone
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.configs import DATABASE_URL, JOB_STATES, FAILED_STATE, MAX_JOB_RETRIES, next_state
-from app.db.models import Job, JobLog
-
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.WARNING, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-# Only show INFO for our workers
-logging.getLogger("app").setLevel(logging.INFO)
-logging.getLogger(__name__).setLevel(logging.INFO)
 
-_engine = create_engine(DATABASE_URL)
+from app.configs import JOB_STATES, FAILED_STATE, MAX_JOB_RETRIES, next_state
+from app.db.engine import engine as _engine
+from app.db.models import Job, JobLog
 
 # ── State → worker module mapping ─────────────────────────────────────────────
 _WORKER_MAP: dict[str, str] = {

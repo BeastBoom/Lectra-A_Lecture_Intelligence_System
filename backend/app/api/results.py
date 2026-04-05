@@ -64,13 +64,13 @@ async def get_job_results(job_id: str):
 
         # Quiz from AI outputs
         stmt_quiz = (
-+            select(AIOutput)
-+            .where(
-+                AIOutput.audio_id == job.audio_id,
-+                AIOutput.output_type == "quiz_flashcards",
-+            )
-+            .order_by(AIOutput.created_at.desc())
-+       )
+            select(AIOutput)
+            .where(
+                AIOutput.audio_id == job.audio_id,
+                AIOutput.output_type == "quiz_flashcards",
+            )
+            .order_by(AIOutput.created_at.desc())
+        )
         quiz_ai = session.scalars(stmt_quiz).first()
         quiz_payload = None
         if quiz_ai and quiz_ai.payload:

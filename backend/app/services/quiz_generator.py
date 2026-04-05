@@ -10,7 +10,7 @@ import logging
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, select, delete
 from sqlalchemy.orm import Session
 
 from app.configs import DATABASE_URL
@@ -153,13 +153,13 @@ def generate_quiz(
 def _store_quiz(audio_id: str, quiz_data: dict) -> None:
     """Store the full quiz payload as an AIOutput."""
     with Session(_engine) as session:
-      # Remove any existing quiz for this audio to avoid duplicates
-+       session.execute(
-+           delete(AIOutput).where(
-+               AIOutput.audio_id == uuid.UUID(audio_id),
-+               AIOutput.output_type == "quiz_flashcards",
-+           )
-+       )
+        # Remove any existing quiz for this audio to avoid duplicates
+        session.execute(
+            delete(AIOutput).where(
+                AIOutput.audio_id == uuid.UUID(audio_id),
+                AIOutput.output_type == "quiz_flashcards",
+            )
+        )
         ai_out = AIOutput(
             audio_id=uuid.UUID(audio_id),
             output_type="quiz_flashcards",
