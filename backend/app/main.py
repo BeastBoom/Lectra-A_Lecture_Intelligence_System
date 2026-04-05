@@ -37,7 +37,7 @@ from app.api.subjects import router as subjects_router
 # ── CORS origins — never use "*" with credentials (browser blocks it) ────────
 _raw_origins = os.getenv(
     "CORS_ORIGINS",
-    "http://localhost:3000,http://localhost:8000",
+    "http://localhost:3000,http://localhost:8000,https://lectra-a-lecture-intelligence-syste.vercel.app",
 )
 CORS_ORIGINS: list[str] = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 

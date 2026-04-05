@@ -21,7 +21,7 @@ JWT_SECRET: str = os.getenv("JWT_SECRET", "lectra-dev-secret-change-in-productio
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
 # Comma-separated list of allowed origins. Never use "*" with credentials.
-CORS_ORIGINS_RAW: str = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000")
+CORS_ORIGINS_RAW: str = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8000,https://lectra-a-lecture-intelligence-syste.vercel.app")
 
 # ── FFmpeg ────────────────────────────────────────────────────────────────────
 FFMPEG_BIN: str = os.getenv("FFMPEG_BIN", "ffmpeg")
