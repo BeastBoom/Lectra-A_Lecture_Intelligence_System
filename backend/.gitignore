@@ -19,6 +19,8 @@ build/
 # Environment variables
 .env
 .env.*
+.env copy
+
 
 # IDE / Editor
 .vscode/

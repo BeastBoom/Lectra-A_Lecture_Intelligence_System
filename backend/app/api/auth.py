@@ -187,7 +187,7 @@ async def me(current_user: dict = Depends(get_current_user)):
 
 
 @router.get("/auth/google/callback")
-async def google_callback(code: str):
+async def google_callback(code: str, redirect_uri: str = None):
     """
     Google OAuth callback — exchange auth code for token, fetch user info,
     create-or-find the user, and return a Lectra JWT.
@@ -195,19 +195,21 @@ async def google_callback(code: str):
     from app.configs import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI
     import httpx
 
+    used_redirect_uri = redirect_uri if redirect_uri else GOOGLE_REDIRECT_URI
+
     # 1. Exchange authorization code for access token
     token_url = "https://oauth2.googleapis.com/token"
     token_data = {
         "code": code,
         "client_id": GOOGLE_CLIENT_ID,
         "client_secret": GOOGLE_CLIENT_SECRET,
-        "redirect_uri": GOOGLE_REDIRECT_URI,
+        "redirect_uri": used_redirect_uri,
         "grant_type": "authorization_code",
     }
 
     import logging
     logger = logging.getLogger(__name__)
-    logger.info(f"[Google OAuth] Exchanging code, redirect_uri={GOOGLE_REDIRECT_URI}")
+    logger.info(f"[Google OAuth] Exchanging code, redirect_uri={used_redirect_uri}")
 
     async with httpx.AsyncClient() as client:
         token_res = await client.post(token_url, data=token_data)

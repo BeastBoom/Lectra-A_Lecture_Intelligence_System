@@ -22,8 +22,9 @@ function CallbackHandler() {
 
         async function exchangeCode(authCode: string) {
             try {
+                const currentRedirectUri = encodeURIComponent(window.location.origin + "/auth/google/callback");
                 const res = await fetch(
-                    `${API_BASE}/api/auth/google/callback?code=${encodeURIComponent(authCode)}`
+                    `${API_BASE}/api/auth/google/callback?code=${encodeURIComponent(authCode)}&redirect_uri=${currentRedirectUri}`
                 );
                 const data = await res.json();
 
