@@ -45,7 +45,7 @@ export default function SignupPage() {
     setBusy(provider); setErr("");
     if (provider === "google") {
       const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID";
-      const redirectUri = encodeURIComponent(window.location.origin + "/auth/google/callback");
+      const redirectUri = encodeURIComponent(window.location.origin + "/auth/callback/google");
       const scope = encodeURIComponent("email profile");
       window.location.href =
         `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&access_type=offline&prompt=consent`;
